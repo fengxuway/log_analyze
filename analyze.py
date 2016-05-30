@@ -146,7 +146,7 @@ def unzip_files():
                 if os.path.isfile(os.path.join(log2_dir, log)) and log.endswith('.log'):
                     # logfiles.append(os.path.join(log2_dir, log))
                     main([os.path.join(log2_dir, log)])
-
+    print "\nComplete!"
 
 def main2():
     unzip_files()
