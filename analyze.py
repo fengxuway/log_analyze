@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding:utf-8
 import re
-from mysql_util import connect
 import os
 import shutil
 import commands
@@ -60,16 +59,6 @@ def check_exists(cursor, msgid):
     return False
 
 
-def catch_data():
-    lst = []
-    sql = """select sessionid from t2d_chatscene where success=0 """
-    with connect() as cursor:
-        cursor.execute(sql)
-        results = cursor.fetchall()
-        for i in results:
-            lst.append(i[0])
-    return lst
-
 
 def flush_database(cursor, data):
     sql = """
@@ -96,7 +85,6 @@ msgids = []
 
 
 def main(files):
-    sessionids = catch_data()
     # TODO 去重
     # for _file in log_files():
     for _file in files:
@@ -104,16 +92,13 @@ def main(files):
             with open(_file) as f:
                 for line in f:
                     data = process(line)
-                    with connect() as cursor:
-                        if data and data['sessionid'] in sessionids \
-                                and not check_exists(cursor, data['msgid'])\
-                                and data['msgid'] not in msgids:
-                            print "line: ", line
-                            with open(log_file, 'a') as log:
-                                log.write("#==========================================\n")
-                                log.write("# " + line + '\n')
-                            flush_database(cursor, data)
-                            msgids.append(data['msgid'])
+                    if data and data['msgid'] not in msgids:
+                        print "line: ", line
+                        with open(log_file, 'a') as log:
+                            log.write("#==========================================\n")
+                            log.write("# " + line + '\n')
+                        flush_database(None, data)
+                        msgids.append(data['msgid'])
         except IOError:
             print "No such file: ", _file
 
@@ -122,35 +107,37 @@ def unzip_files():
     # log_dir = '/data/backup/2/htchat5.ntalker.com'
     log_dir = '/home/fengxu/download/kf/logs'
     os.chdir(log_dir)
+    count = 0
     for tar in os.listdir(log_dir):
         if not os.path.isfile(tar) or not tar.endswith('tar.gz'):
             continue
-        print "***************  ", tar, "  ****************"
+        count += 1
+        print "***************  ", tar, "  ****************", count
         logfiles = []
         try:
             shutil.rmtree('log')
         except OSError:
             print "Delete log dir error."
-        a, b = commands.getstatusoutput('tar -zxvf ' + tar)
-        for zipfile in os.listdir('log'):
-            zip = os.path.join('log', zipfile)
-            dd = zip
-            if os.path.isfile(zip) and zip.endswith('.zip'):
-                print 'unzip and reading file: ', zip
-                try:
-                    shutil.rmtree('ttt')
-                except OSError:
-                    print "Delete TTT dir error."
-                commands.getstatusoutput('unzip ' + zip + ' -d ttt')
-                # zip = os.path.join(zip, 'ttt')
-                dd = 'ttt'
+        commands.getstatusoutput('tar -zxvf ' + tar)
+        if os.path.exists('log'):
+            for zipfile in os.listdir('log'):
+                zip = os.path.join('log', zipfile)
+                dd = zip
+                if os.path.isfile(zip) and zip.endswith('.zip'):
+                    print 'unzip and reading file: ', zip
+                    try:
+                        shutil.rmtree('ttt')
+                    except OSError:
+                        print "Delete TTT dir error."
+                    commands.getstatusoutput('unzip ' + zip + ' -d ttt')
+                    dd = 'ttt'
 
-            if os.path.isdir(dd):
-                for logfile in os.listdir(dd):
-                    log = os.path.join(dd, logfile)
-                    if os.path.isfile(log) and log.endswith('.log'):
-                        # logfiles.append(log)
-                        main([log])
+                if os.path.isdir(dd):
+                    for logfile in os.listdir(dd):
+                        log = os.path.join(dd, logfile)
+                        if os.path.isfile(log) and log.endswith('.log'):
+                            # logfiles.append(log)
+                            main([log])
 
 
         log2_dir = 'dev/shm/tchat'
@@ -159,7 +146,6 @@ def unzip_files():
                 if os.path.isfile(os.path.join(log2_dir, log)) and log.endswith('.log'):
                     # logfiles.append(os.path.join(log2_dir, log))
                     main([os.path.join(log2_dir, log)])
-        print logfiles
 
 
 def main2():
